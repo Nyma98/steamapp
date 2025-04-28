@@ -1,27 +1,32 @@
 import requests
 import pandas as pd
 import time
+import os
 from datetime import datetime
 
-# Dein API Key von RAWG
+# API Key
 API_KEY = 'f354a9b55fcc4ea3b5f54a423122569a'
 
-# Base URL
-BASE_URL = 'https://api.rawg.io/api/games'
+if not API_KEY:
+    raise ValueError("❌ API Key fehlt.")
 
-# Datenliste
+print(f"🔑 Using API Key: {API_KEY}")
+
+BASE_URL = 'https://api.rawg.io/api/games'
 games_data = []
 
 # API-Parameter
 params = {
     'key': API_KEY,
-    'page_size': 20,
-    'ordering': '-rating'
+    'page_size': 40,
+    'dates': '2015-01-01,2025-12-31',  # Zeitraum festlegen
+    # KEIN ordering = nach Standard (beliebteste oder zufälligere Reihenfolge)
 }
 
 page = 1
+MAX_PAGES = 100  # Viel mehr Seiten!
 
-while True:
+while page <= MAX_PAGES:
     params['page'] = page
     print(f"📄 Lade Seite {page}...")
 
@@ -30,39 +35,53 @@ while True:
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.RequestException as e:
-        print(f"❌ Fehler: {e}")
+        print(f"❌ Fehler beim Abrufen: {e}")
         break
 
     if 'results' not in data or not data['results']:
-        print("✅ Keine weiteren Spiele.")
+        print("✅ Keine weiteren Ergebnisse.")
         break
 
     for game in data['results']:
-        on_steam = any(store['store']['slug'] == 'steam' for store in game.get('stores', []))
-        if not on_steam:
+        stores = game.get('stores')
+        if not stores or not any(store['store']['slug'] == 'steam' for store in stores):
+            continue
+
+        released = game.get('released')
+        ratings_count = game.get('ratings_count', 0)
+
+        if not released:
+            continue
+
+        today = pd.Timestamp.today()
+        released_date = pd.to_datetime(released, errors='coerce')
+
+        if pd.isna(released_date) or released_date > today or ratings_count == 0:
             continue
 
         games_data.append({
             'name': game['name'],
-            'rating': game['rating'],
-            'ratings_count': game['ratings_count'],
-            'playtime': game['playtime'],
-            'released': game['released'],
-            'genres': ', '.join([genre['name'] for genre in game['genres']]),
+            'ratings_count': ratings_count,
+            'released': released,
         })
 
     page += 1
-    time.sleep(1)  # API nicht überlasten
+    time.sleep(1)  # API nicht stressen
 
-# DataFrame erstellen
+print(f"🎮 Gesammelte Steam-Spiele (veröffentlicht und bewertet): {len(games_data)}")
+
+# Output-Ordner
+output_folder = 'WP3-Output'
+os.makedirs(output_folder, exist_ok=True)
+
+# Speichern
 if games_data:
     df = pd.DataFrame(games_data)
-    print(df.head())
-
-    # Speichern als CSV mit Timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'steam_games_{timestamp}.csv'
+    filename = os.path.join(output_folder, f'wp3_steam_ratings_{timestamp}.csv')
     df.to_csv(filename, index=False)
-    print(f"💾 Daten gespeichert unter: {filename}")
+
+    print(df.head(15))  # Vorschau
+    print(f"💾 CSV gespeichert unter: {filename}")
 else:
-    print("⚠️ Keine Daten gesammelt.")
+    print("⚠️ Keine Spiele-Daten gesammelt.")
