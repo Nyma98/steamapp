@@ -19,12 +19,12 @@ games_data = []
 # Parameter
 params = {
     'key': API_KEY,
-    'page_size': 20,
+    'page_size': 40,
     'ordering': '-rating'
 }
 
 page = 1
-MAX_PAGES = 5  # Kannst du erhöhen!
+MAX_PAGES = 100  # 100 Seiten x 40 Spiele = 4000 Spiele
 
 while page <= MAX_PAGES:
     params['page'] = page
