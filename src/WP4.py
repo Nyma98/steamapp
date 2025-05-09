@@ -1,106 +1,116 @@
-
 import requests
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import time
 import os
+from datetime import datetime
+import matplotlib.pyplot as plt
+import random
 
-# =================== CONFIG ===================
-
+# Dein API Key
 API_KEY = 'f354a9b55fcc4ea3b5f54a423122569a'
+
+if not API_KEY:
+    raise ValueError("❌ API Key fehlt.")
+
+print(f"🔑 Using API Key: {API_KEY}")
+
 BASE_URL = 'https://api.rawg.io/api/games'
-OUTPUT_DIR = 'WP4-Output'
-MAX_PAGES = 100
-PAGE_SIZE = 40
+games_data = []
 
-# =================== HELPERS ===================
+# API-Parameter
+params = {
+    'key': API_KEY,
+    'page_size': 40,
+    'dates': '2015-01-01,2025-12-31',  # Zeitraum
+}
 
-def is_steam_game(game):
-    if not isinstance(game, dict):
-        return False
-    return any(
-        isinstance(store, dict)
-        and store.get('store', {}).get('slug') == 'steam'
-        for store in game.get('stores', [])
-    )
+page = 1
+MAX_PAGES = 100  # ca. 4000 Spiele laden
 
-def extract_game_info(game):
-    esrb = None
-    if isinstance(game.get('esrb_rating'), dict):
-        esrb = game['esrb_rating'].get('name')
-    return {
-        'name': game.get('name'),
-        'rating': game.get('rating', None),
-        'ratings_count': game.get('ratings_count', 0),
-        'esrb': esrb
-    }
+while page <= MAX_PAGES:
+    params['page'] = page
+    print(f"📄 Lade Seite {page}...")
 
-def fetch_games():
-    all_games = []
-    for page in range(1, MAX_PAGES + 1):
-        print(f"📄 Lade Seite {page}...")
-        params = {
-            'key': API_KEY,
-            'page_size': PAGE_SIZE,
-            'dates': '2010-01-01,2025-12-31',
-            'page': page
-        }
-        try:
-            res = requests.get(BASE_URL, params=params)
-            res.raise_for_status()
-            data = res.json()
-            if not data or 'results' not in data:
-                print(f"❌ Unerwartete API-Antwort: {data}")
-                break
-            games = data.get('results', [])
-            steam_games = [extract_game_info(g) for g in games if g and is_steam_game(g)]
-            all_games.extend(steam_games)
-        except Exception as e:
-            print(f"❌ Fehler beim Laden: {e}")
-            break
-    if not all_games:
-        print("❌ Keine Spiele-Daten geladen.")
-    return pd.DataFrame(all_games)
+    try:
+        response = requests.get(BASE_URL, params=params)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Fehler beim Abrufen: {e}")
+        break
 
-# =================== ANALYSE ===================
+    if 'results' not in data or not data['results']:
+        print("✅ Keine weiteren Ergebnisse.")
+        break
 
-def analyze_esrb(df):
-    required_columns = {'rating', 'ratings_count', 'esrb'}
-    if not required_columns.issubset(df.columns):
-        raise ValueError(f"❌ Fehlende Spalten in DataFrame: {required_columns - set(df.columns)}")
-    
-    df = df[(df['rating'].notnull()) & (df['ratings_count'] > 0) & (df['esrb'].notnull()) & (df['esrb'] != 'Rating Pending')]
-    summary = df.groupby('esrb').agg(
-        avg_rating=('rating', 'mean'),
-        median_rating=('rating', 'median'),
-        game_count=('name', 'count')
-    ).sort_values(by='avg_rating', ascending=False)
-    return df, summary
+    for game in data['results']:
+        stores = game.get('stores')
+        if not stores or not any(store['store']['slug'] == 'steam' for store in stores):
+            continue
 
-def plot_esrb_distribution(df):
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(x='esrb', y='rating', data=df, palette='Set2')
-    plt.title('Bewertungen nach ESRB-Kategorie')
-    plt.xlabel('ESRB-Rating')
-    plt.ylabel('Spielbewertung')
+        released = game.get('released')
+        rating = game.get('rating', None)
+        esrb = game.get('esrb_rating')
+        esrb_name = esrb['name'] if esrb else None  # 💥 FIX
+
+        if not released or rating is None or esrb_name is None:
+            continue
+
+        games_data.append({
+            'name': game['name'],
+            'rating': rating,
+            'esrb_rating': esrb_name,
+            'released': released,
+        })
+
+    page += 1
+    time.sleep(1)  # Schonend für die API
+
+print(f"🎮 Gesammelte Steam-Spiele (mit Altersfreigabe): {len(games_data)}")
+
+# Ordner für Output
+output_folder = 'WP4-Output'
+os.makedirs(output_folder, exist_ok=True)
+
+# DataFrame erstellen
+if games_data:
+    df = pd.DataFrame(games_data)
+
+    # CSV speichern
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = os.path.join(output_folder, f'wp4_steam_esrb_ratings_{timestamp}.csv')
+    df.to_csv(filename, index=False)
+
+    print(df.head(15))  # Vorschau
+    print(f"💾 CSV gespeichert unter: {filename}")
+
+    # Scatter-Plot vorbereiten
+    plt.figure(figsize=(12, 7))
+
+    # Für bessere Lesbarkeit: X-Achse kategorisch
+    unique_ratings = df['esrb_rating'].unique()
+    esrb_mapping = {rating: idx for idx, rating in enumerate(unique_ratings)}
+    df['esrb_numeric'] = df['esrb_rating'].map(esrb_mapping)
+
+    # Zufälliges Jittern, damit Punkte nicht übereinander kleben
+    jitter = [random.uniform(-0.2, 0.2) for _ in range(len(df))]
+
+    # Scatterplot zeichnen
+    plt.scatter(df['esrb_numeric'] + jitter, df['rating'], alpha=0.6)
+    plt.title('Zusammenhang zwischen Altersfreigabe (ESRB) und Bewertung (Steam)')
+    plt.xlabel('Altersfreigabe (ESRB)')
+    plt.ylabel('Bewertung (0-5)')
+    plt.xticks(ticks=list(esrb_mapping.values()), labels=list(esrb_mapping.keys()), rotation=45)
     plt.grid(True)
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    plt.savefig(f"{OUTPUT_DIR}/esrb_ratings_boxplot.png")
-    plt.close()
+    plt.tight_layout()
 
-# =================== MAIN ===================
+    # Plot speichern
+    chart_filename = os.path.join(output_folder, f'wp4_esrb_vs_rating_{timestamp}.png')
+    plt.savefig(chart_filename)
+    print(f"📈 Scatter-Plot gespeichert unter: {chart_filename}")
 
-def main():
-    df = fetch_games()
-    if df.empty:
-        print("❌ Keine Daten zum Analysieren verfügbar.")
-        return
-    
-    df_clean, summary = analyze_esrb(df)
-    plot_esrb_distribution(df_clean)
-    summary.to_csv(f"{OUTPUT_DIR}/esrb_rating_summary.csv")
-    df_clean.to_csv(f"{OUTPUT_DIR}/esrb_ratings_raw.csv", index=False)
-    print("✅ ESRB-Analyse abgeschlossen und gespeichert.")
+    # Plot anzeigen
+    plt.show()
 
-if __name__ == "__main__":
-    main()
+else:
+    print("⚠️ Keine Spiele-Daten gesammelt.")
