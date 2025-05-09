@@ -1,75 +1,81 @@
 import requests
 import pandas as pd
-import time
+import matplotlib.pyplot as plt
+import seaborn as sns
 from datetime import datetime
 import os
 
-# Dein API Key
+# =================== CONFIG ===================
+
 API_KEY = 'f354a9b55fcc4ea3b5f54a423122569a'
-
-if not API_KEY:
-    raise ValueError("❌ API Key fehlt.")
-
-print(f"🔑 Using API Key: {API_KEY}")
-
 BASE_URL = 'https://api.rawg.io/api/games'
-games_data = []
+OUTPUT_DIR = 'WP1-Output'
+MAX_PAGES = 5
+PAGE_SIZE = 40
 
-# Parameter
-params = {
-    'key': API_KEY,
-    'page_size': 20,
-    'ordering': '-rating'
-}
+# =================== HELPERS ===================
 
-page = 1
-MAX_PAGES = 5  # Kannst du erhöhen!
+def is_steam_game(game):
+    return any(store['store']['slug'] == 'steam' for store in game.get('stores', []))
 
-while page <= MAX_PAGES:
-    params['page'] = page
-    print(f"📄 Lade Seite {page}...")
+def extract_game_info(game):
+    return {
+        'name': game.get('name'),
+        'playtime': game.get('playtime', 0),
+        'rating': game.get('rating', None),
+        'ratings_count': game.get('ratings_count', 0),
+        'released': game.get('released')
+    }
 
-    try:
-        response = requests.get(BASE_URL, params=params)
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Fehler beim Abrufen: {e}")
-        break
+def fetch_games():
+    all_games = []
+    for page in range(1, MAX_PAGES + 1):
+        print(f"📄 Lade Seite {page}...")
+        params = {
+            'key': API_KEY,
+            'page_size': PAGE_SIZE,
+            'ordering': '-rating',
+            'page': page
+        }
+        try:
+            res = requests.get(BASE_URL, params=params)
+            res.raise_for_status()
+            data = res.json()
+            games = data.get('results', [])
+            steam_games = [extract_game_info(g) for g in games if is_steam_game(g)]
+            all_games.extend(steam_games)
+        except Exception as e:
+            print(f"❌ Fehler beim Laden: {e}")
+            break
+    return pd.DataFrame(all_games)
 
-    if 'results' not in data or not data['results']:
-        print("✅ Keine weiteren Ergebnisse.")
-        break
+# =================== ANALYSE ===================
 
-    for game in data['results']:
-        # Prüfe, ob auf Steam verfügbar
-        if not any(store['store']['slug'] == 'steam' for store in game.get('stores', [])):
-            continue
+def analyze_playtime_vs_rating(df):
+    df = df[(df['playtime'] > 0) & (df['rating'].notnull())]
+    correlation = df['playtime'].corr(df['rating'])
+    print(f"📊 Korrelation (Pearson) zwischen Spielzeit und Bewertung: {correlation:.2f}")
+    return df, correlation
 
-        games_data.append({
-            'name': game['name'],
-            'rating': game['rating'],
-            'ratings_count': game['ratings_count'],
-            'playtime': game['playtime'],
-            'released': game['released'],
-            'genres': ', '.join([genre['name'] for genre in game['genres']]),
-        })
+def plot_scatter(df):
+    plt.figure(figsize=(10, 6))
+    sns.regplot(x='playtime', y='rating', data=df, scatter_kws={'alpha':0.6})
+    plt.title('Spielzeit vs. Bewertung')
+    plt.xlabel('Durchschnittliche Spielzeit (h)')
+    plt.ylabel('Bewertung')
+    plt.grid(True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    plt.savefig(f"{OUTPUT_DIR}/playtime_vs_rating.png")
+    plt.close()
 
-    page += 1
-    time.sleep(1)  # API nicht überlasten
+# =================== MAIN ===================
 
-print(f"🎮 Gesammelte Steam-Spiele: {len(games_data)}")
+def main():
+    df = fetch_games()
+    df_clean, corr = analyze_playtime_vs_rating(df)
+    plot_scatter(df_clean)
+    df_clean.to_csv(f"{OUTPUT_DIR}/playtime_vs_rating.csv", index=False)
+    print("✅ Analyse abgeschlossen und gespeichert.")
 
-# DataFrame & Speichern
-if games_data:
-    df = pd.DataFrame(games_data)
-    print(df.head())
-
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'steam_games_{timestamp}.csv'
-    df.to_csv(filename, index=False)
-
-    full_path = os.path.abspath(filename)
-    print(f"💾 Daten gespeichert unter: {full_path}")
-else:
-    print("⚠️ Keine Spiele-Daten gesammelt.")
+if __name__ == "__main__":
+    main()

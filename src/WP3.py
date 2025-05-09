@@ -1,87 +1,81 @@
+
 import requests
 import pandas as pd
-import time
-import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 from datetime import datetime
+import os
 
-# API Key
+# =================== CONFIG ===================
+
 API_KEY = 'f354a9b55fcc4ea3b5f54a423122569a'
-
-if not API_KEY:
-    raise ValueError("❌ API Key fehlt.")
-
-print(f"🔑 Using API Key: {API_KEY}")
-
 BASE_URL = 'https://api.rawg.io/api/games'
-games_data = []
+OUTPUT_DIR = 'WP3-Output'
+MAX_PAGES = 100
+PAGE_SIZE = 40
 
-# API-Parameter
-params = {
-    'key': API_KEY,
-    'page_size': 40,
-    'dates': '2015-01-01,2025-12-31',  # Zeitraum festlegen
-    # KEIN ordering = nach Standard (beliebteste oder zufälligere Reihenfolge)
-}
+# =================== HELPERS ===================
 
-page = 1
-MAX_PAGES = 100  # Viel mehr Seiten!
+def is_steam_game(game):
+    return any(store['store']['slug'] == 'steam' for store in game.get('stores', []))
 
-while page <= MAX_PAGES:
-    params['page'] = page
-    print(f"📄 Lade Seite {page}...")
+def extract_game_info(game):
+    return {
+        'name': game.get('name'),
+        'ratings_count': game.get('ratings_count', 0),
+        'released': game.get('released')
+    }
 
-    try:
-        response = requests.get(BASE_URL, params=params)
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Fehler beim Abrufen: {e}")
-        break
+def fetch_games():
+    all_games = []
+    for page in range(1, MAX_PAGES + 1):
+        print(f"📄 Lade Seite {page}...")
+        params = {
+            'key': API_KEY,
+            'page_size': PAGE_SIZE,
+            'dates': '2013-01-01,2025-12-31',
+            'page': page
+        }
+        try:
+            res = requests.get(BASE_URL, params=params)
+            res.raise_for_status()
+            data = res.json()
+            games = data.get('results', [])
+            steam_games = [extract_game_info(g) for g in games if is_steam_game(g)]
+            all_games.extend(steam_games)
+        except Exception as e:
+            print(f"❌ Fehler beim Laden: {e}")
+            break
+    return pd.DataFrame(all_games)
 
-    if 'results' not in data or not data['results']:
-        print("✅ Keine weiteren Ergebnisse.")
-        break
+# =================== ANALYSE ===================
 
-    for game in data['results']:
-        stores = game.get('stores')
-        if not stores or not any(store['store']['slug'] == 'steam' for store in stores):
-            continue
+def clean_and_group(df):
+    df = df[(df['ratings_count'] > 0) & (df['released'].notnull())]
+    df['year'] = pd.to_datetime(df['released'], errors='coerce').dt.year
+    df = df[df['year'].notnull() & (df['year'] <= datetime.now().year)]
+    yearly = df.groupby('year').agg(total_ratings=('ratings_count', 'sum')).reset_index()
+    return yearly
 
-        released = game.get('released')
-        ratings_count = game.get('ratings_count', 0)
+def plot_time_series(df):
+    plt.figure(figsize=(10, 6))
+    sns.lineplot(x='year', y='total_ratings', data=df, marker='o')
+    plt.title('Anzahl Bewertungen pro Jahr (Steam-Spiele)')
+    plt.xlabel('Jahr')
+    plt.ylabel('Summe der Bewertungen')
+    plt.grid(True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    plt.savefig(f"{OUTPUT_DIR}/ratings_over_time.png")
+    plt.close()
 
-        if not released:
-            continue
+# =================== MAIN ===================
 
-        today = pd.Timestamp.today()
-        released_date = pd.to_datetime(released, errors='coerce')
+def main():
+    df = fetch_games()
+    yearly_stats = clean_and_group(df)
+    plot_time_series(yearly_stats)
+    yearly_stats.to_csv(f"{OUTPUT_DIR}/ratings_over_time.csv", index=False)
+    print("✅ Zeitreihenanalyse abgeschlossen und gespeichert.")
 
-        if pd.isna(released_date) or released_date > today or ratings_count == 0:
-            continue
-
-        games_data.append({
-            'name': game['name'],
-            'ratings_count': ratings_count,
-            'released': released,
-        })
-
-    page += 1
-    time.sleep(1)  # API nicht stressen
-
-print(f"🎮 Gesammelte Steam-Spiele (veröffentlicht und bewertet): {len(games_data)}")
-
-# Output-Ordner
-output_folder = 'WP3-Output'
-os.makedirs(output_folder, exist_ok=True)
-
-# Speichern
-if games_data:
-    df = pd.DataFrame(games_data)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = os.path.join(output_folder, f'wp3_steam_ratings_{timestamp}.csv')
-    df.to_csv(filename, index=False)
-
-    print(df.head(15))  # Vorschau
-    print(f"💾 CSV gespeichert unter: {filename}")
-else:
-    print("⚠️ Keine Spiele-Daten gesammelt.")
+if __name__ == "__main__":
+    main()
