@@ -12,7 +12,7 @@ def safe_read_csv(path):
         return pd.DataFrame()
 
 # Passe die Dateinamen ggf. an die aktuellen CSVs an!
-df_wp1 = safe_read_csv('../WP1-Output/steam_games_20250509_223849.csv')
+df_wp1 = safe_read_csv('../WP1-Output/.ipynb_checkpoints/"wp1_steam_games_20250422_204305-checkpoint.csv')
 df_wp2 = safe_read_csv('../WP2-Output/steam_genre_average_20250509_224132.csv')
 df_wp3 = safe_read_csv('../WP3-Output/wp3_steam_ratings_20250509_224311.csv')
 df_wp4 = safe_read_csv('../WP4-Output/wp4_steam_esrb_ratings_20250509_224627.csv')
