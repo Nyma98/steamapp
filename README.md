@@ -51,10 +51,10 @@ CSV-Dateien wurden in mehreren **Workpackages (WP1–WP4)** gespeichert:
 
 | Workpackage | Inhalt |
 |-------------|--------|
-| WP1         | Spielzeit vs. Bewertung |
-| WP2         | Genre-Auswertung |
-| WP3         | Entwicklung der Reviews über 10 Jahre |
-| WP4         | Bewertung vs. Altersfreigabe (ESRB) |
+| WP1         | Do games with a shorter playing time have lower ratings? |
+| WP2         | Which genres perform best on average? |
+| WP3         | How has the number of reviews for Steam games developed over the past 10 years? |
+| WP4         | s there a relationship between age rating and game rating? |
 
 ---
 
