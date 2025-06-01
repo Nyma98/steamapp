@@ -1,66 +1,66 @@
-# 📊 Projektarbeit SP: Was macht ein Spiel erfolgreich?
+# 📊 Project Work SP: What Makes a Game Successful?
 
-## 🔍 Projektüberblick
+## 🔍 Project Overview
 
-**Gruppe:** 12  
-**Teammitglieder:** Kevin Lam, Nyma Dadutsang  
-**Fragestellung:** Was macht ein Spiel erfolgreich?
+**Group:** 12  
+**Team Members:** Kevin Lam, Nyma Dadutsang  
+**Research Question:** What makes a game successful?
 
-Ziel dieses Projekts ist es, **Erfolgsfaktoren für Steam-Spiele** zu analysieren. Dabei wurden mehrere Hypothesen untersucht – z. B. ob es einen Zusammenhang gibt zwischen Spielzeit und Bewertung, ob bestimmte Genres besser abschneiden, und wie sich Bewertungen über die letzten Jahre verändert haben.
+The goal of this project is to **analyze success factors for Steam games**. Several hypotheses were examined – e.g., whether there is a correlation between playtime and rating, whether certain genres perform better, and how ratings have changed over the years.
 
-Die Daten stammen aus der [RAWG Video Games Database API](https://rawg.io/apidocs).
-
----
-
-## 🧠 Untersuchungsfragen & Methoden
-
-### 1. **Zusammenhang zwischen Spielzeit und Bewertung**
-- **Ziel:** Gibt es einen messbaren Zusammenhang?
-- **Vorgehen:** Daten von ca. 100 Steam-Spielen mit Bewertungen und Spielzeit gesammelt.
-- **Analyse:** Visualisierung + Pearson-Korrelationsanalyse.
-- **Ergebnis:** Schwacher, aber **signifikanter positiver Zusammenhang** (r ≈ 0.164, p < 0.0001).
-
-### 2. **Top Genres nach Bewertung**
-- **Ziel:** Welche Genres erhalten im Schnitt die besten Bewertungen?
-- **Vorgehen:** 4000 Spiele analysiert, Genres extrahiert, Durchschnittswerte berechnet.
-- **Visualisierung:** Balkendiagramm der Durchschnittsbewertungen je Genre.
-- **Ergebnis:** z. B. *Massively Multiplayer*, *Board Game* und *Adventure* schnitten am besten ab.
-
-### 3. **Entwicklung der Bewertungen über die Jahre**
-- **Ziel:** Wie hat sich die Anzahl & Qualität der Bewertungen seit 2015 entwickelt?
-- **Vorgehen:** Veröffentlichungsdaten & Anzahl Bewertungen analysiert.
-- **Visualisierung:** Zeitreihe für Anzahl & durchschnittliche Bewertung je Jahr.
-- **Ergebnis:** Anzahl der Reviews pro Jahr ist rückläufig; Bewertungen bleiben relativ stabil.
-
-### 4. **Einfluss der Altersfreigabe (ESRB) auf die Bewertung**
-- **Ziel:** Werden Spiele mit bestimmter Altersfreigabe besser bewertet?
-- **Vorgehen:** 4000 Spiele mit ESRB-Daten analysiert.
-- **Visualisierung:** Balkendiagramm pro Altersfreigabe.
-- **Ergebnis:** *Mature*-Spiele schneiden durchschnittlich besser ab als *Everyone*-Spiele.
+The data comes from the [RAWG Video Games Database API](https://rawg.io/apidocs).
 
 ---
 
-## 🗃️ Datenquelle & -verarbeitung
+## 🧠 Research Questions & Methods
+
+### 1. **Correlation Between Playtime and Rating**
+- **Goal:** Is there a measurable correlation?
+- **Approach:** Data collected from approx. 100 Steam games including ratings and playtime.
+- **Analysis:** Visualization + Pearson correlation analysis.
+- **Result:** Weak but **significant positive correlation** (r ≈ 0.164, p < 0.0001).
+
+### 2. **Top Genres by Rating**
+- **Goal:** Which genres receive the highest average ratings?
+- **Approach:** Analyzed 4000 games, extracted genres, calculated averages.
+- **Visualization:** Bar chart of average ratings per genre.
+- **Result:** For example, *Massively Multiplayer*, *Board Game*, and *Adventure* performed best.
+
+### 3. **Development of Ratings Over the Years**
+- **Goal:** How have the number and quality of ratings changed since 2015?
+- **Approach:** Analyzed release dates & number of ratings.
+- **Visualization:** Time series showing number & average rating per year.
+- **Result:** Number of reviews per year is declining; ratings remain relatively stable.
+
+### 4. **Impact of Age Rating (ESRB) on Game Ratings**
+- **Goal:** Are games with certain age ratings rated higher?
+- **Approach:** Analyzed 4000 games with ESRB data.
+- **Visualization:** Bar chart per age rating.
+- **Result:** *Mature* games are rated higher on average than *Everyone* games.
+
+---
+
+## 🗃️ Data Source & Processing
 
 - **API:** [RAWG.io API](https://rawg.io/apidocs)
-- **Seitenanzahl:** 5–100 Seiten (je nach Fragestellung)
-- **Filter:** Nur Steam-Spiele, nur veröffentlichte Titel, nur Spiele mit Bewertungen
+- **Pages Crawled:** 5–100 pages (depending on the question)
+- **Filters:** Steam games only, released titles only, only games with ratings
 - **Tools:** `requests`, `pandas`, `matplotlib`, `scipy`
 
-CSV-Dateien wurden in mehreren **Workpackages (WP1–WP4)** gespeichert:
+CSV files were saved in several **Work Packages (WP1–WP4)**:
 
-| Workpackage | Inhalt |
-|-------------|--------|
-| WP1         | Do games with a shorter playing time have lower ratings? |
-| WP2         | Which genres perform best on average? |
-| WP3         | How has the number of reviews for Steam games developed over the past 10 years? |
-| WP4         | s there a relationship between age rating and game rating? |
+| Work Package | Content |
+|--------------|---------|
+| WP1          | Do games with a shorter playing time have lower ratings? |
+| WP2          | Which genres perform best on average? |
+| WP3          | How has the number of reviews for Steam games developed over the past 10 years? |
+| WP4          | Is there a relationship between age rating and game rating? |
 
 ---
 
-## 🧮 MySQL-Datenbank
+## 🧮 MySQL Database
 
-### Struktur (WP1):
+### Structure (WP1):
 ```sql
 CREATE TABLE games_wp1 (
     id INT AUTO_INCREMENT PRIMARY KEY,
